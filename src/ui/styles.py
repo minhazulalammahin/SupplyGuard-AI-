@@ -431,6 +431,138 @@ input, textarea {
     background: #38bdf8;
 }
 
+/* -------------------------------------------------------------
+   9. CLEAN ENTERPRISE DATA TABLE
+------------------------------------------------------------- */
+.sg-table-container {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.45);
+}
+
+.sg-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.85rem;
+}
+
+.sg-table th {
+    padding: 0.75rem 0.65rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sg-table td {
+    padding: 0.85rem 0.65rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: middle;
+}
+
+.sg-table tr:last-child td {
+    border-bottom: none;
+}
+
+.sg-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* -------------------------------------------------------------
+   10. PROCUREMENT AUDIT SPECIFIC CARDS
+------------------------------------------------------------- */
+.procure-section-card {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.procure-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #38bdf8;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: -0.01em;
+}
+
+.procure-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.procure-field {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+.procure-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: 0.25rem;
+    font-weight: 600;
+}
+
+.procure-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.procure-subtext {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.2rem;
+}
+
+/* Compliance 7-point checklist */
+.compliance-checklist-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 0.85rem 1.15rem;
+    margin-bottom: 0.65rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s ease;
+}
+
+.compliance-checklist-card:hover {
+    background: rgba(15, 23, 42, 0.9);
+    border-color: rgba(56, 189, 248, 0.2);
+}
+
+.compliance-check-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.compliance-check-desc {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin-top: 0.2rem;
+    line-height: 1.35;
+}
+
 /* Headers */
 h1, h2, h3, h4 {
     letter-spacing: -0.025em;
@@ -448,3 +580,4 @@ hr {
 }
 </style>
 """
+
