@@ -16,3 +16,4 @@ def test_all_10_sample_pdfs_extractable(pack_idx):
     assert len(page_texts[1]) > 200
     assert "QUOTATION" in full_text
     assert "PR-2026-114" in full_text
+

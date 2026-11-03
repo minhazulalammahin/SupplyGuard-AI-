@@ -176,3 +176,4 @@ SupplyGuard-AI/
     ├── test_gemini_integration.py# Gemini API retries and malformed JSON tests
     └── test_e2e_golden_packs.py  # End-to-end regression on all 10 sample packs
 ```
+

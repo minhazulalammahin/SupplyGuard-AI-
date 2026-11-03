@@ -250,3 +250,4 @@ def test_unverified_evidence_prevents_approval(compliant_quotation, base_pr_item
     res = evaluate_quotation(compliant_quotation, base_pr_item, unverified_evidence=unverified)
     assert res.overall_decision == "NEEDS_A_PERSON_TO_CHECK"
     assert any(f.rule_id == "H0_UNVERIFIED_EVIDENCE" for f in res.review_findings)
+

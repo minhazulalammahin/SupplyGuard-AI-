@@ -46,7 +46,12 @@ with st.sidebar:
 st.title("🛡️ SupplyGuard AI: Document Verification System")
 st.markdown("Automated compliance verification of supplier quotation packs against PR benchmarks and company purchasing rules.")
 
-tabs = st.tabs(["📄 Individual Pack Audit", "📊 Batch Evaluation Matrix (All 10 Packs)", "📋 Company Rules Reference"])
+tabs = st.tabs([
+    "📄 Individual Pack Audit",
+    "📊 Batch Evaluation Matrix (All 10 Packs)",
+    "📈 Evaluation Report",
+    "📋 Company Rules Reference"
+])
 
 # Tab 1: Individual Pack Audit
 with tabs[0]:
@@ -213,11 +218,21 @@ with tabs[1]:
             use_container_width=True
         )
 
-# Tab 3: Company Rules Reference
+# Tab 3: Evaluation Report
 with tabs[2]:
+    st.markdown("### 📈 Independent Verification & Accuracy Report")
+    eval_file = Path(__file__).resolve().parent.parent.parent / "EVALUATION_REPORT.md"
+    if eval_file.exists():
+        st.markdown(eval_file.read_text())
+    else:
+        st.info("Evaluation report available in project root: EVALUATION_REPORT.md")
+
+# Tab 4: Company Rules Reference
+with tabs[3]:
     st.markdown("### 📜 Aamar Garments Ltd: Supplier Document Rules")
     rules_file = DATA_DIR / "company-rules.md"
     if rules_file.exists():
         st.markdown(rules_file.read_text())
     else:
         st.warning("company-rules.md not found.")
+

@@ -128,3 +128,4 @@ def test_golden_pack_evaluation(
 
     # 4. Zero unverified citations check
     assert len(res.unverified_evidence) == 0, f"Unverified evidence found for {filename}: {res.unverified_evidence}"
+

@@ -48,3 +48,4 @@ def test_verify_quotation_evidence_detects_hallucinations():
     assert verified_q.evidence_quotes[2].is_verified is True  # Absent clause verified as absent
     assert len(unverified) == 1
     assert "delivery" in unverified[0]
+

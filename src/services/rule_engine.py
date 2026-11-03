@@ -9,44 +9,16 @@ from src.models.schemas import (
 )
 
 
-def evaluate_quotation(
+def compare_purchase_request(
     quotation: ExtractedQuotation,
-    pr_item: PurchaseRequestItem,
-    filename: str = "",
-    unverified_evidence: Optional[List[str]] = None
-) -> VerificationResult:
-    """Evaluate a supplier quotation deterministically against company rules and PR specifications.
-    
-    Decision priority:
-        REJECT > NEEDS_A_PERSON_TO_CHECK > APPROVE
-    """
-    rejections: List[RuleFinding] = []
-    reviews: List[RuleFinding] = []
-    compliances: List[RuleFinding] = []
-    unverified_list = unverified_evidence or []
+    pr_item: PurchaseRequestItem
+) -> List[RuleFinding]:
+    """Evaluate price ceiling and quantity deviation against the purchase request baseline."""
+    findings: List[RuleFinding] = []
 
-    # -------------------------------------------------------------
-    # 0. Evidence verification / Missing data safety check
-    # -------------------------------------------------------------
-    if unverified_list:
-        reviews.append(
-            RuleFinding(
-                rule_id="H0_UNVERIFIED_EVIDENCE",
-                category="NEEDS_A_PERSON_TO_CHECK",
-                rule_name="Unverifiable Evidence Citation",
-                description=f"Evidence text could not be verified in the document: {', '.join(unverified_list)}",
-                evidence_text="[EVIDENCE VERIFICATION FAILED]",
-                observed_value=str(len(unverified_list)),
-                expected_value="0 unverified fields",
-                is_violation=True
-            )
-        )
-
-    # -------------------------------------------------------------
-    # REJECTION RULE 1 & HUMAN REVIEW RULE 1: Unit Price
-    # -------------------------------------------------------------
+    # 1. Price Evaluation (R1 & H1)
     if quotation.unit_price is None:
-        reviews.append(
+        findings.append(
             RuleFinding(
                 rule_id="H0_MISSING_PRICE",
                 category="NEEDS_A_PERSON_TO_CHECK",
@@ -62,10 +34,13 @@ def evaluate_quotation(
         diff_pct = ((quoted_price - max_price) / max_price) * Decimal("100.0")
         diff_pct_rounded = diff_pct.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        price_evidence = next((eq.quote for eq in quotation.evidence_quotes if eq.field_name == "unit_price"), f"{quoted_price}") or f"{quoted_price}"
+        price_evidence = next(
+            (eq.quote for eq in quotation.evidence_quotes if eq.field_name == "unit_price"),
+            f"{quoted_price}"
+        ) or f"{quoted_price}"
 
         if diff_pct > Decimal("3.0"):
-            rejections.append(
+            findings.append(
                 RuleFinding(
                     rule_id="R1_PRICE_EXCESS",
                     category="REJECT",
@@ -78,7 +53,7 @@ def evaluate_quotation(
                 )
             )
         elif diff_pct > Decimal("0.0"):
-            reviews.append(
+            findings.append(
                 RuleFinding(
                     rule_id="H1_PRICE_MARGINAL_EXCESS",
                     category="NEEDS_A_PERSON_TO_CHECK",
@@ -91,7 +66,7 @@ def evaluate_quotation(
                 )
             )
         else:
-            compliances.append(
+            findings.append(
                 RuleFinding(
                     rule_id="C1_PRICE_COMPLIANT",
                     category="APPROVE",
@@ -104,178 +79,9 @@ def evaluate_quotation(
                 )
             )
 
-    # -------------------------------------------------------------
-    # REJECTION RULE 2: Advance Payment (> 20%)
-    # -------------------------------------------------------------
-    adv_pct = quotation.advance_payment_pct if quotation.advance_payment_pct is not None else Decimal("0.0")
-    pay_evidence = quotation.payment_terms_raw or next((eq.quote for eq in quotation.evidence_quotes if eq.field_name == "advance_payment_pct"), "") or ""
-
-    if adv_pct > Decimal("20.0"):
-        rejections.append(
-            RuleFinding(
-                rule_id="R2_ADVANCE_PAYMENT",
-                category="REJECT",
-                rule_name="Advance Payment Exceeds 20%",
-                description=f"Supplier demands {adv_pct}% advance payment, which exceeds the company maximum limit of 20%.",
-                evidence_text=pay_evidence,
-                observed_value=f"{adv_pct}% advance",
-                expected_value="<= 20% advance",
-                is_violation=True
-            )
-        )
-    else:
-        compliances.append(
-            RuleFinding(
-                rule_id="C2_ADVANCE_COMPLIANT",
-                category="APPROVE",
-                rule_name="Advance Payment Compliant",
-                description=f"Advance payment {adv_pct}% is within permissible ceiling (<= 20%).",
-                evidence_text=pay_evidence,
-                observed_value=f"{adv_pct}% advance",
-                expected_value="<= 20%",
-                is_violation=False
-            )
-        )
-
-    # -------------------------------------------------------------
-    # REJECTION RULE 3: Late Delivery Penalty Clause Missing or < 0.5%
-    # -------------------------------------------------------------
-    pen_evidence = quotation.penalty_terms_raw or next((eq.quote for eq in quotation.evidence_quotes if eq.field_name == "late_delivery_penalty_pct_per_week"), None)
-
-    if not quotation.has_late_delivery_penalty_clause or pen_evidence is None or quotation.late_delivery_penalty_pct_per_week is None:
-        rejections.append(
-            RuleFinding(
-                rule_id="R3_NO_PENALTY_CLAUSE",
-                category="REJECT",
-                rule_name="Missing Late-Delivery Penalty Clause",
-                description="Contract contains no late-delivery penalty clause.",
-                evidence_text="[CLAUSE ABSENT FROM TERMS AND CONDITIONS]",
-                observed_value="None",
-                expected_value="Penalty clause of at least 0.5% per week of delay",
-                is_violation=True
-            )
-        )
-    elif quotation.late_delivery_penalty_pct_per_week < Decimal("0.5"):
-        rejections.append(
-            RuleFinding(
-                rule_id="R3_INSUFFICIENT_PENALTY",
-                category="REJECT",
-                rule_name="Insufficient Late-Delivery Penalty Rate",
-                description=f"Late delivery penalty rate is {quotation.late_delivery_penalty_pct_per_week}%/week, which is below the mandatory 0.5%/week minimum.",
-                evidence_text=pen_evidence,
-                observed_value=f"{quotation.late_delivery_penalty_pct_per_week}%/week",
-                expected_value=">= 0.5% per week",
-                is_violation=True
-            )
-        )
-    else:
-        compliances.append(
-            RuleFinding(
-                rule_id="C3_PENALTY_COMPLIANT",
-                category="APPROVE",
-                rule_name="Late-Delivery Penalty Compliant",
-                description=f"Late delivery penalty of {quotation.late_delivery_penalty_pct_per_week}% per week meets policy requirements.",
-                evidence_text=pen_evidence,
-                observed_value=f"{quotation.late_delivery_penalty_pct_per_week}%/week",
-                expected_value=">= 0.5%/week",
-                is_violation=False
-            )
-        )
-
-    # -------------------------------------------------------------
-    # REJECTION RULE 4: Missing TIN or BIN
-    # -------------------------------------------------------------
-    tin_bin_evidence = quotation.tin_bin_raw or next((eq.quote for eq in quotation.evidence_quotes if eq.field_name in ("tin", "bin")), None)
-
-    if not quotation.tin or not quotation.bin:
-        rejections.append(
-            RuleFinding(
-                rule_id="R4_MISSING_TIN_BIN",
-                category="REJECT",
-                rule_name="Supplier TIN or BIN Missing",
-                description="Supplier failed to state mandatory TIN or BIN registration details on quotation.",
-                evidence_text=tin_bin_evidence or "[REGISTRATION DETAILS MISSING]",
-                observed_value=f"TIN: {quotation.tin or 'MISSING'}, BIN: {quotation.bin or 'MISSING'}",
-                expected_value="Both valid TIN and BIN must be stated",
-                is_violation=True
-            )
-        )
-    else:
-        compliances.append(
-            RuleFinding(
-                rule_id="C4_TIN_BIN_COMPLIANT",
-                category="APPROVE",
-                rule_name="Tax Registration Compliant",
-                description=f"Valid TIN ({quotation.tin}) and BIN ({quotation.bin}) present.",
-                evidence_text=tin_bin_evidence or f"TIN: {quotation.tin} BIN: {quotation.bin}",
-                observed_value=f"TIN: {quotation.tin}, BIN: {quotation.bin}",
-                expected_value="Valid TIN and BIN",
-                is_violation=False
-            )
-        )
-
-    # -------------------------------------------------------------
-    # REJECTION RULE 5 & HUMAN REVIEW RULE 4: Delivery Window
-    # -------------------------------------------------------------
-    del_days = quotation.delivery_promised_days
-    del_evidence = quotation.delivery_terms_raw or next((eq.quote for eq in quotation.evidence_quotes if eq.field_name == "delivery_promised_days"), "") or ""
-
-    if del_days is None:
-        reviews.append(
-            RuleFinding(
-                rule_id="H0_MISSING_DELIVERY",
-                category="NEEDS_A_PERSON_TO_CHECK",
-                rule_name="Missing Delivery Schedule",
-                description="Promised delivery schedule is missing or unparseable.",
-                evidence_text=del_evidence or "[MISSING IN DOCUMENT]",
-                is_violation=True
-            )
-        )
-    elif del_days > 45:
-        rejections.append(
-            RuleFinding(
-                rule_id="R5_LATE_DELIVERY",
-                category="REJECT",
-                rule_name="Delivery Promised Later than 45 Days",
-                description=f"Promised delivery period is {del_days} days after PO, which exceeds the mandatory 45-day cutoff.",
-                evidence_text=del_evidence,
-                observed_value=f"{del_days} days",
-                expected_value="<= 45 days after PO",
-                is_violation=True
-            )
-        )
-    elif 31 <= del_days <= 45:
-        reviews.append(
-            RuleFinding(
-                rule_id="H4_DELIVERY_WINDOW",
-                category="NEEDS_A_PERSON_TO_CHECK",
-                rule_name="Delivery Promised in 31 to 45 Days",
-                description=f"Promised delivery is {del_days} days (falls in the 31-45 days window requiring operational check).",
-                evidence_text=del_evidence,
-                observed_value=f"{del_days} days",
-                expected_value="<= 30 days for automatic approval",
-                is_violation=True
-            )
-        )
-    else:
-        compliances.append(
-            RuleFinding(
-                rule_id="C5_DELIVERY_COMPLIANT",
-                category="APPROVE",
-                rule_name="Delivery Schedule Compliant",
-                description=f"Promised delivery in {del_days} days satisfies rapid fulfillment criteria (<= 30 days).",
-                evidence_text=del_evidence,
-                observed_value=f"{del_days} days",
-                expected_value="<= 30 days",
-                is_violation=False
-            )
-        )
-
-    # -------------------------------------------------------------
-    # HUMAN REVIEW RULE 2: Quantity Variance (> 5%)
-    # -------------------------------------------------------------
+    # 2. Quantity Variance (H2)
     if quotation.quantity is None:
-        reviews.append(
+        findings.append(
             RuleFinding(
                 rule_id="H0_MISSING_QUANTITY",
                 category="NEEDS_A_PERSON_TO_CHECK",
@@ -291,10 +97,13 @@ def evaluate_quotation(
         qty_diff = abs(quoted_qty - req_qty)
         qty_diff_pct = (qty_diff / req_qty) * Decimal("100.0")
         qty_diff_pct_rounded = qty_diff_pct.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        qty_evidence = next((eq.quote for eq in quotation.evidence_quotes if eq.field_name == "quantity"), f"{quoted_qty}") or f"{quoted_qty}"
+        qty_evidence = next(
+            (eq.quote for eq in quotation.evidence_quotes if eq.field_name == "quantity"),
+            f"{quoted_qty}"
+        ) or f"{quoted_qty}"
 
         if qty_diff_pct > Decimal("5.0"):
-            reviews.append(
+            findings.append(
                 RuleFinding(
                     rule_id="H2_QUANTITY_VARIANCE",
                     category="NEEDS_A_PERSON_TO_CHECK",
@@ -307,7 +116,7 @@ def evaluate_quotation(
                 )
             )
         else:
-            compliances.append(
+            findings.append(
                 RuleFinding(
                     rule_id="C6_QUANTITY_COMPLIANT",
                     category="APPROVE",
@@ -320,14 +129,190 @@ def evaluate_quotation(
                 )
             )
 
-    # -------------------------------------------------------------
-    # HUMAN REVIEW RULE 3: Payment Terms (Unclear or Outside 30-60 Days)
-    # -------------------------------------------------------------
+    return findings
+
+
+def validate_contract_rules(quotation: ExtractedQuotation) -> List[RuleFinding]:
+    """Evaluate terms and conditions, legal clauses, taxes, and arithmetic consistency."""
+    findings: List[RuleFinding] = []
+
+    # 1. Advance Payment (R2)
+    adv_pct = quotation.advance_payment_pct if quotation.advance_payment_pct is not None else Decimal("0.0")
+    pay_evidence = quotation.payment_terms_raw or next(
+        (eq.quote for eq in quotation.evidence_quotes if eq.field_name == "advance_payment_pct"),
+        ""
+    ) or ""
+
+    if adv_pct > Decimal("20.0"):
+        findings.append(
+            RuleFinding(
+                rule_id="R2_ADVANCE_PAYMENT",
+                category="REJECT",
+                rule_name="Advance Payment Exceeds 20%",
+                description=f"Supplier demands {adv_pct}% advance payment, which exceeds the company maximum limit of 20%.",
+                evidence_text=pay_evidence,
+                observed_value=f"{adv_pct}% advance",
+                expected_value="<= 20% advance",
+                is_violation=True
+            )
+        )
+    else:
+        findings.append(
+            RuleFinding(
+                rule_id="C2_ADVANCE_COMPLIANT",
+                category="APPROVE",
+                rule_name="Advance Payment Compliant",
+                description=f"Advance payment {adv_pct}% is within permissible ceiling (<= 20%).",
+                evidence_text=pay_evidence,
+                observed_value=f"{adv_pct}% advance",
+                expected_value="<= 20%",
+                is_violation=False
+            )
+        )
+
+    # 2. Late Delivery Penalty Clause (R3)
+    pen_evidence = quotation.penalty_terms_raw or next(
+        (eq.quote for eq in quotation.evidence_quotes if eq.field_name == "late_delivery_penalty_pct_per_week"),
+        None
+    )
+
+    if not quotation.has_late_delivery_penalty_clause or pen_evidence is None or quotation.late_delivery_penalty_pct_per_week is None:
+        findings.append(
+            RuleFinding(
+                rule_id="R3_NO_PENALTY_CLAUSE",
+                category="REJECT",
+                rule_name="Missing Late-Delivery Penalty Clause",
+                description="Contract contains no late-delivery penalty clause.",
+                evidence_text="[CLAUSE ABSENT FROM TERMS AND CONDITIONS]",
+                observed_value="None",
+                expected_value="Penalty clause of at least 0.5% per week of delay",
+                is_violation=True
+            )
+        )
+    elif quotation.late_delivery_penalty_pct_per_week < Decimal("0.5"):
+        findings.append(
+            RuleFinding(
+                rule_id="R3_INSUFFICIENT_PENALTY",
+                category="REJECT",
+                rule_name="Insufficient Late-Delivery Penalty Rate",
+                description=f"Late delivery penalty rate is {quotation.late_delivery_penalty_pct_per_week}%/week, which is below the mandatory 0.5%/week minimum.",
+                evidence_text=pen_evidence,
+                observed_value=f"{quotation.late_delivery_penalty_pct_per_week}%/week",
+                expected_value=">= 0.5% per week",
+                is_violation=True
+            )
+        )
+    else:
+        findings.append(
+            RuleFinding(
+                rule_id="C3_PENALTY_COMPLIANT",
+                category="APPROVE",
+                rule_name="Late-Delivery Penalty Compliant",
+                description=f"Late delivery penalty of {quotation.late_delivery_penalty_pct_per_week}% per week meets policy requirements.",
+                evidence_text=pen_evidence,
+                observed_value=f"{quotation.late_delivery_penalty_pct_per_week}%/week",
+                expected_value=">= 0.5%/week",
+                is_violation=False
+            )
+        )
+
+    # 3. TIN & BIN Presence (R4)
+    tin_bin_evidence = quotation.tin_bin_raw or next(
+        (eq.quote for eq in quotation.evidence_quotes if eq.field_name in ("tin", "bin")),
+        None
+    )
+
+    if not quotation.tin or not quotation.bin:
+        findings.append(
+            RuleFinding(
+                rule_id="R4_MISSING_TIN_BIN",
+                category="REJECT",
+                rule_name="Supplier TIN or BIN Missing",
+                description="Supplier failed to state mandatory TIN or BIN registration details on quotation.",
+                evidence_text=tin_bin_evidence or "[REGISTRATION DETAILS MISSING]",
+                observed_value=f"TIN: {quotation.tin or 'MISSING'}, BIN: {quotation.bin or 'MISSING'}",
+                expected_value="Both valid TIN and BIN must be stated",
+                is_violation=True
+            )
+        )
+    else:
+        findings.append(
+            RuleFinding(
+                rule_id="C4_TIN_BIN_COMPLIANT",
+                category="APPROVE",
+                rule_name="Tax Registration Compliant",
+                description=f"Valid TIN ({quotation.tin}) and BIN ({quotation.bin}) present.",
+                evidence_text=tin_bin_evidence or f"TIN: {quotation.tin} BIN: {quotation.bin}",
+                observed_value=f"TIN: {quotation.tin}, BIN: {quotation.bin}",
+                expected_value="Valid TIN and BIN",
+                is_violation=False
+            )
+        )
+
+    # 4. Delivery Promised Days (R5 & H4)
+    del_days = quotation.delivery_promised_days
+    del_evidence = quotation.delivery_terms_raw or next(
+        (eq.quote for eq in quotation.evidence_quotes if eq.field_name == "delivery_promised_days"),
+        ""
+    ) or ""
+
+    if del_days is None:
+        findings.append(
+            RuleFinding(
+                rule_id="H0_MISSING_DELIVERY",
+                category="NEEDS_A_PERSON_TO_CHECK",
+                rule_name="Missing Delivery Schedule",
+                description="Promised delivery schedule is missing or unparseable.",
+                evidence_text=del_evidence or "[MISSING IN DOCUMENT]",
+                is_violation=True
+            )
+        )
+    elif del_days > 45:
+        findings.append(
+            RuleFinding(
+                rule_id="R5_LATE_DELIVERY",
+                category="REJECT",
+                rule_name="Delivery Promised Later than 45 Days",
+                description=f"Promised delivery period is {del_days} days after PO, which exceeds the mandatory 45-day cutoff.",
+                evidence_text=del_evidence,
+                observed_value=f"{del_days} days",
+                expected_value="<= 45 days after PO",
+                is_violation=True
+            )
+        )
+    elif 31 <= del_days <= 45:
+        findings.append(
+            RuleFinding(
+                rule_id="H4_DELIVERY_WINDOW",
+                category="NEEDS_A_PERSON_TO_CHECK",
+                rule_name="Delivery Promised in 31 to 45 Days",
+                description=f"Promised delivery is {del_days} days (falls in the 31-45 days window requiring operational check).",
+                evidence_text=del_evidence,
+                observed_value=f"{del_days} days",
+                expected_value="<= 30 days for automatic approval",
+                is_violation=True
+            )
+        )
+    else:
+        findings.append(
+            RuleFinding(
+                rule_id="C5_DELIVERY_COMPLIANT",
+                category="APPROVE",
+                rule_name="Delivery Schedule Compliant",
+                description=f"Promised delivery in {del_days} days satisfies rapid fulfillment criteria (<= 30 days).",
+                evidence_text=del_evidence,
+                observed_value=f"{del_days} days",
+                expected_value="<= 30 days",
+                is_violation=False
+            )
+        )
+
+    # 5. Payment Terms Window (H3)
     min_days = quotation.payment_min_days
     max_days = quotation.payment_max_days
 
     if min_days is None or max_days is None:
-        reviews.append(
+        findings.append(
             RuleFinding(
                 rule_id="H3_PAYMENT_TERMS_UNCLEAR",
                 category="NEEDS_A_PERSON_TO_CHECK",
@@ -340,7 +325,7 @@ def evaluate_quotation(
             )
         )
     elif min_days < 30 or max_days > 60:
-        reviews.append(
+        findings.append(
             RuleFinding(
                 rule_id="H3_PAYMENT_TERMS_OUTSIDE_WINDOW",
                 category="NEEDS_A_PERSON_TO_CHECK",
@@ -353,7 +338,7 @@ def evaluate_quotation(
             )
         )
     else:
-        compliances.append(
+        findings.append(
             RuleFinding(
                 rule_id="C7_PAYMENT_TERMS_COMPLIANT",
                 category="APPROVE",
@@ -366,13 +351,14 @@ def evaluate_quotation(
             )
         )
 
-    # -------------------------------------------------------------
-    # HUMAN REVIEW RULE 5: VAT Shown Separately at 15%
-    # -------------------------------------------------------------
-    vat_evidence = quotation.tax_terms_raw or next((eq.quote for eq in quotation.evidence_quotes if eq.field_name == "vat_amount"), "") or ""
+    # 6. VAT Itemization (H5)
+    vat_evidence = quotation.tax_terms_raw or next(
+        (eq.quote for eq in quotation.evidence_quotes if eq.field_name == "vat_amount"),
+        ""
+    ) or ""
 
     if not quotation.vat_is_separate_at_15 or quotation.vat_rate_pct != Decimal("15.0") or quotation.vat_amount is None:
-        reviews.append(
+        findings.append(
             RuleFinding(
                 rule_id="H5_VAT_NOT_SEPARATED",
                 category="NEEDS_A_PERSON_TO_CHECK",
@@ -385,7 +371,7 @@ def evaluate_quotation(
             )
         )
     else:
-        compliances.append(
+        findings.append(
             RuleFinding(
                 rule_id="C8_VAT_COMPLIANT",
                 category="APPROVE",
@@ -398,11 +384,8 @@ def evaluate_quotation(
             )
         )
 
-    # -------------------------------------------------------------
-    # HUMAN REVIEW RULE 6: Numbers Do Not Add Up (Math Error)
-    # -------------------------------------------------------------
+    # 7. Arithmetic Checks (H6)
     math_errors = []
-    
     if quotation.quantity and quotation.unit_price and quotation.line_amount:
         expected_line = (quotation.quantity * quotation.unit_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if abs(expected_line - quotation.line_amount) > Decimal("0.05"):
@@ -425,7 +408,7 @@ def evaluate_quotation(
             )
 
     if math_errors:
-        reviews.append(
+        findings.append(
             RuleFinding(
                 rule_id="H6_ARITHMETIC_ERROR",
                 category="NEEDS_A_PERSON_TO_CHECK",
@@ -438,7 +421,7 @@ def evaluate_quotation(
             )
         )
     else:
-        compliances.append(
+        findings.append(
             RuleFinding(
                 rule_id="C9_ARITHMETIC_COMPLIANT",
                 category="APPROVE",
@@ -451,13 +434,14 @@ def evaluate_quotation(
             )
         )
 
-    # -------------------------------------------------------------
-    # HUMAN REVIEW RULE 7: Quotation Validity (< 30 Days)
-    # -------------------------------------------------------------
-    val_evidence = quotation.validity_terms_raw or next((eq.quote for eq in quotation.evidence_quotes if eq.field_name == "validity_days"), "") or ""
+    # 8. Quotation Validity (H7)
+    val_evidence = quotation.validity_terms_raw or next(
+        (eq.quote for eq in quotation.evidence_quotes if eq.field_name == "validity_days"),
+        ""
+    ) or ""
 
     if quotation.validity_days is not None and quotation.validity_days < 30:
-        reviews.append(
+        findings.append(
             RuleFinding(
                 rule_id="H7_SHORT_VALIDITY",
                 category="NEEDS_A_PERSON_TO_CHECK",
@@ -470,7 +454,7 @@ def evaluate_quotation(
             )
         )
     elif quotation.validity_days is not None:
-        compliances.append(
+        findings.append(
             RuleFinding(
                 rule_id="C10_VALIDITY_COMPLIANT",
                 category="APPROVE",
@@ -483,10 +467,37 @@ def evaluate_quotation(
             )
         )
 
-    # -------------------------------------------------------------
-    # DECISION PRIORITY RESOLUTION
-    # REJECT > NEEDS_A_PERSON_TO_CHECK > APPROVE
-    # -------------------------------------------------------------
+    return findings
+
+
+def resolve_decision(
+    pr_findings: List[RuleFinding],
+    contract_findings: List[RuleFinding],
+    unverified_evidence: Optional[List[str]] = None
+) -> Tuple[str, str, List[RuleFinding], List[RuleFinding], List[RuleFinding]]:
+    """Resolve overall decision applying strict priority: REJECT > NEEDS_A_PERSON_TO_CHECK > APPROVE."""
+    all_findings = pr_findings + contract_findings
+    unverified_list = unverified_evidence or []
+
+    # Extra finding if unverified evidence exists
+    if unverified_list:
+        all_findings.append(
+            RuleFinding(
+                rule_id="H0_UNVERIFIED_EVIDENCE",
+                category="NEEDS_A_PERSON_TO_CHECK",
+                rule_name="Unverifiable Evidence Citation",
+                description=f"Evidence text could not be verified in the document: {', '.join(unverified_list)}",
+                evidence_text="[EVIDENCE VERIFICATION FAILED]",
+                observed_value=str(len(unverified_list)),
+                expected_value="0 unverified fields",
+                is_violation=True
+            )
+        )
+
+    rejections = [f for f in all_findings if f.category == "REJECT"]
+    reviews = [f for f in all_findings if f.category == "NEEDS_A_PERSON_TO_CHECK"]
+    compliances = [f for f in all_findings if f.category == "APPROVE"]
+
     if rejections:
         overall_decision = "REJECT"
         primary_finding = rejections[0]
@@ -499,11 +510,29 @@ def evaluate_quotation(
         overall_decision = "APPROVE"
         decision_reason = "APPROVED: All pricing, commercial terms, delivery schedules, tax, and arithmetic rules are fully compliant."
 
+    return overall_decision, decision_reason, rejections, reviews, compliances
+
+
+def evaluate_quotation(
+    quotation: ExtractedQuotation,
+    pr_item: PurchaseRequestItem,
+    filename: str = "",
+    unverified_evidence: Optional[List[str]] = None
+) -> VerificationResult:
+    """Unified evaluation entry point."""
+    pr_findings = compare_purchase_request(quotation, pr_item)
+    contract_findings = validate_contract_rules(quotation)
+    unverified_list = unverified_evidence or []
+
+    decision, reason, rejections, reviews, compliances = resolve_decision(
+        pr_findings, contract_findings, unverified_list
+    )
+
     all_findings = rejections + reviews + compliances
 
     audit_summary = (
-        f"DECISION: {overall_decision}\n"
-        f"Primary Reason: {decision_reason}\n"
+        f"DECISION: {decision}\n"
+        f"Primary Reason: {reason}\n"
         f"Total Rejections: {len(rejections)} | Reviews: {len(reviews)} | Compliances: {len(compliances)}"
     )
 
@@ -511,8 +540,8 @@ def evaluate_quotation(
         filename=filename,
         pr_item=pr_item,
         quotation=quotation,
-        overall_decision=overall_decision,
-        decision_reason=decision_reason,
+        overall_decision=decision,
+        decision_reason=reason,
         findings=all_findings,
         rejection_findings=rejections,
         review_findings=reviews,

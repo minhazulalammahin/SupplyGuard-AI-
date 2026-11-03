@@ -39,3 +39,4 @@ class PurchaseRequestRepository:
     def get_all_items(self) -> Dict[str, PurchaseRequestItem]:
         """Get all PR items mapped by item code."""
         return self._items
+

@@ -86,3 +86,4 @@ Supplier TIN: 101458013391 BIN: 000170141-0101
         assert extracted.quotation_number == "QT-2026-901"
         assert extracted.unit_price == pytest.approx(472.00)
         assert extracted.advance_payment_pct == pytest.approx(10.0)
+

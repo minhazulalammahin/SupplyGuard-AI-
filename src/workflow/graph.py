@@ -1,42 +1,48 @@
-"""LangGraph fixed workflow definition for SupplyGuard AI."""
+"""LangGraph fixed 8-node step-by-step workflow definition for SupplyGuard AI."""
 from langgraph.graph import StateGraph, START, END
 from src.models.state import SupplyGuardState
 from src.workflow.nodes import (
-    node_load_document,
-    node_load_pr_baseline,
-    node_extract_quotation,
-    node_match_pr_item,
-    node_verify_evidence,
-    node_evaluate_rules,
+    node_document_loading,
+    node_text_extraction,
+    node_structured_information_extraction,
+    node_extraction_validation,
+    node_purchase_request_comparison,
+    node_contract_rule_validation,
+    node_final_decision,
+    node_report_generation,
 )
 
 
 def create_supply_guard_graph():
-    """Build and compile the fixed, deterministic step-by-step verification workflow."""
+    """Build and compile the fixed 8-node verification workflow."""
     builder = StateGraph(SupplyGuardState)
 
-    # Register workflow nodes
-    builder.add_node("load_document", node_load_document)
-    builder.add_node("load_pr_baseline", node_load_pr_baseline)
-    builder.add_node("extract_quotation", node_extract_quotation)
-    builder.add_node("match_pr_item", node_match_pr_item)
-    builder.add_node("verify_evidence", node_verify_evidence)
-    builder.add_node("evaluate_rules", node_evaluate_rules)
+    # 1. Register the 8 explicit nodes
+    builder.add_node("document_loading", node_document_loading)
+    builder.add_node("text_extraction", node_text_extraction)
+    builder.add_node("structured_information_extraction", node_structured_information_extraction)
+    builder.add_node("extraction_validation", node_extraction_validation)
+    builder.add_node("purchase_request_comparison", node_purchase_request_comparison)
+    builder.add_node("contract_rule_validation", node_contract_rule_validation)
+    builder.add_node("final_decision", node_final_decision)
+    builder.add_node("report_generation", node_report_generation)
 
-    # Define fixed linear execution pipeline
-    builder.add_edge(START, "load_document")
-    builder.add_edge("load_document", "load_pr_baseline")
-    builder.add_edge("load_pr_baseline", "extract_quotation")
-    builder.add_edge("extract_quotation", "match_pr_item")
-    builder.add_edge("match_pr_item", "verify_evidence")
-    builder.add_edge("verify_evidence", "evaluate_rules")
-    builder.add_edge("evaluate_rules", END)
+    # 2. Connect in fixed sequential order
+    builder.add_edge(START, "document_loading")
+    builder.add_edge("document_loading", "text_extraction")
+    builder.add_edge("text_extraction", "structured_information_extraction")
+    builder.add_edge("structured_information_extraction", "extraction_validation")
+    builder.add_edge("extraction_validation", "purchase_request_comparison")
+    builder.add_edge("purchase_request_comparison", "contract_rule_validation")
+    builder.add_edge("contract_rule_validation", "final_decision")
+    builder.add_edge("final_decision", "report_generation")
+    builder.add_edge("report_generation", END)
 
     return builder.compile()
 
 
 def run_verification(pdf_path: str) -> SupplyGuardState:
-    """Execute the full verification workflow on a single PDF document."""
+    """Execute the full 8-node verification workflow on a single PDF document."""
     graph = create_supply_guard_graph()
     initial_state = SupplyGuardState(pdf_path=str(pdf_path))
     final_output = graph.invoke(initial_state)

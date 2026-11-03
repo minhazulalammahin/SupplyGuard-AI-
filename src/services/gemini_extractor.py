@@ -9,7 +9,7 @@ from google import genai
 from google.genai import types
 from google.genai.errors import APIError
 
-from src.config import GEMINI_API_KEY, GEMINI_MODEL, MAX_RETRIES, is_gemini_available
+from src.config import get_gemini_api_key, GEMINI_MODEL, MAX_RETRIES, is_gemini_available
 from src.models.schemas import ExtractedQuotation, EvidenceQuote
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def extract_with_gemini(
     model_name: Optional[str] = None
 ) -> ExtractedQuotation:
     """Extract structured quotation data using Gemini 2.5 Flash API with Pydantic validation."""
-    key = api_key or GEMINI_API_KEY
+    key = api_key or get_gemini_api_key()
     if not key:
         raise ValueError("Gemini API key is required for online extraction.")
 

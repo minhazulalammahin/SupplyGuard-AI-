@@ -34,3 +34,4 @@ def extract_pdf_document(pdf_path: str | Path) -> Tuple[Dict[int, str], str]:
         
     full_text = "\n".join(full_text_chunks)
     return page_texts, full_text
+

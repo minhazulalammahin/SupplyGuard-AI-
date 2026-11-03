@@ -29,3 +29,4 @@ def render_findings_table(findings: list[RuleFinding]):
             with col2:
                 st.markdown(f"**Expected / Baseline:** `{f.expected_value or 'N/A'}`")
             st.info(f"**Exact Document Citation:**\n> \"{f.evidence_text}\"")
+

@@ -97,3 +97,4 @@ class VerificationResult(BaseModel):
     compliance_findings: List[RuleFinding] = Field(default_factory=list)
     unverified_evidence: List[str] = Field(default_factory=list)
     audit_summary: str = Field(default="")
+

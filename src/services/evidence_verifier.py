@@ -75,3 +75,4 @@ def verify_quotation_evidence(
             unverified.append(f"{eq.field_name}: Quote '{eq.quote}' not found in document")
             
     return quotation, unverified
+
