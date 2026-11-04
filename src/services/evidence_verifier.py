@@ -1,7 +1,7 @@
 """Evidence verification and anti-hallucination validation service."""
 import re
 from typing import List, Tuple
-from src.models.schemas import ExtractedQuotation, EvidenceQuote
+from src.models.schemas import ExtractedQuotation
 
 
 def normalize_text_for_comparison(text: str) -> str:

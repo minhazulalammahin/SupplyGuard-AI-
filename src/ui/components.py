@@ -9,12 +9,11 @@ Includes:
 - Anti-Hallucination Document Evidence Cards
 - Policy Findings List
 """
-from decimal import Decimal
 import html
 import re
 from typing import List, Dict, Any, Optional
 import streamlit as st
-from src.models.schemas import RuleFinding, ExtractedQuotation, PurchaseRequestItem
+from src.models.schemas import RuleFinding, ExtractedQuotation
 
 
 def fmt_money(val: Optional[Any]) -> str:

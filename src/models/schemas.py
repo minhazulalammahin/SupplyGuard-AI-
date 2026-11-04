@@ -1,6 +1,6 @@
 """Pydantic models and schemas for SupplyGuard AI."""
 from decimal import Decimal
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 

@@ -1,8 +1,6 @@
 """Unit tests for Gemini extraction, retry logic, and malformed AI responses."""
 from unittest.mock import MagicMock, patch
 import pytest
-from pydantic import ValidationError
-from google.genai.errors import APIError
 
 from src.models.schemas import ExtractedQuotation
 from src.services.gemini_extractor import extract_with_gemini, extract_supplier_quotation

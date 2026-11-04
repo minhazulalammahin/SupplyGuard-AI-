@@ -11,12 +11,11 @@ root_dir = Path(__file__).resolve().parent.parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-import os
 import tempfile
 import pandas as pd
 import streamlit as st
 
-from src.config import DATA_DIR, is_gemini_available, GEMINI_MODEL, COMPANY_RULES_PATH
+from src.config import DATA_DIR, is_gemini_available, GEMINI_MODEL
 from src.workflow.graph import run_verification
 from src.ui.styles import get_enterprise_css
 from src.ui.components import (
@@ -29,7 +28,6 @@ from src.ui.components import (
     render_supplier_table,
     fmt_money,
     fmt_qty,
-    clean_reason
 )
 
 # -------------------------------------------------------------
