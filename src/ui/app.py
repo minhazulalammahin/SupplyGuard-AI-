@@ -15,7 +15,7 @@ import tempfile
 import pandas as pd
 import streamlit as st
 
-from src.config import DATA_DIR, is_gemini_available, GEMINI_MODEL
+from src.config import DATA_DIR, is_gemini_available, GEMINI_MODEL, COMPANY_RULES_PATH
 from src.workflow.graph import run_verification
 from src.ui.styles import get_enterprise_css
 from src.ui.components import (
@@ -690,7 +690,7 @@ elif selected_nav == "📈 Evaluation Report":
     st.markdown("### 📜 Complete Evaluation Document (`EVALUATION_REPORT.md`)")
     eval_path = Path(__file__).resolve().parent.parent.parent / "EVALUATION_REPORT.md"
     if eval_path.exists():
-        st.markdown(eval_path.read_text())
+        st.markdown(eval_path.read_text(encoding="utf-8"))
     else:
         st.info("EVALUATION_REPORT.md not found in repository root.")
     st.markdown('</div>', unsafe_allow_html=True)
@@ -780,6 +780,10 @@ Send for review if quotation is valid for less than 30 calendar days.
 </div>
 </div>"""
         st.markdown(rules_review_html, unsafe_allow_html=True)
+
+    if COMPANY_RULES_PATH.exists():
+        with st.expander("📄 View Source Policy Document (`company-rules.md`)", expanded=False):
+            st.markdown(COMPANY_RULES_PATH.read_text(encoding="utf-8"))
 
 
 # -------------------------------------------------------------

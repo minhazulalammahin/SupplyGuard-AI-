@@ -1,4 +1,5 @@
 """PDF Extraction service using PyMuPDF (pymupdf)."""
+from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Tuple
 import pymupdf

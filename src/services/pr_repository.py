@@ -1,4 +1,5 @@
 """Purchase Request loader and repository using Pandas."""
+from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Optional

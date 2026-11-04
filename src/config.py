@@ -12,21 +12,31 @@ PURCHASE_REQUEST_PATH = DATA_DIR / "purchase-request.csv"
 COMPANY_RULES_PATH = DATA_DIR / "company-rules.md"
 
 def get_gemini_api_key() -> str:
-    """Retrieve Gemini API key from environment variable or Streamlit secrets."""
-    # 1. Environment variable
-    key = os.getenv("GEMINI_API_KEY", "").strip()
-    if key and key != "your_gemini_api_key_here":
-        return key
-
-    # 2. Streamlit secrets (if running in Streamlit runtime)
+    """Retrieve Gemini API key from Streamlit secrets, environment variables, or local .env."""
+    # 1. Streamlit secrets (primary for Streamlit Community Cloud)
     try:
         import streamlit as st
-        if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
-            sec_key = st.secrets["GEMINI_API_KEY"].strip()
-            if sec_key and sec_key != "your_gemini_api_key_here":
-                return sec_key
+        if hasattr(st, "secrets"):
+            for sec_name in ("GEMINI_API_KEY", "gemini_api_key"):
+                if sec_name in st.secrets:
+                    sec_key = str(st.secrets[sec_name]).strip()
+                    if sec_key and sec_key != "your_gemini_api_key_here":
+                        return sec_key
+            # Check nested [general] table if present in secrets.toml
+            if "general" in st.secrets and isinstance(st.secrets["general"], dict):
+                for sec_name in ("GEMINI_API_KEY", "gemini_api_key"):
+                    if sec_name in st.secrets["general"]:
+                        sec_key = str(st.secrets["general"][sec_name]).strip()
+                        if sec_key and sec_key != "your_gemini_api_key_here":
+                            return sec_key
     except Exception:
         pass
+
+    # 2. Environment variables / .env (local development and CI/CD)
+    for env_name in ("GEMINI_API_KEY", "gemini_api_key"):
+        key = os.getenv(env_name, "").strip()
+        if key and key != "your_gemini_api_key_here":
+            return key
 
     return ""
 
