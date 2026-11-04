@@ -4,7 +4,7 @@ Includes:
 - Decision Hero Banners
 - KPI Cards
 - Procurement Summary Cards
-- Supplier Evaluation Data Tables (Zero Indent, No Raw Code)
+- Supplier Evaluation Data Tables (Zero Indent, Clean Semantic Classes)
 - 7-Point Compliance Checklist
 - Anti-Hallucination Document Evidence Cards
 - Policy Findings List
@@ -46,7 +46,6 @@ def clean_reason(reason: str) -> str:
     """Strip internal technical rule IDs and prefixes to produce clean procurement English."""
     if not reason:
         return "No specific issues detected."
-    # Strip prefixes like 'REJECTED under R1_PRICE_EXCESS: ' or 'NEEDS A PERSON TO CHECK under H2_QUANTITY_VARIANCE: '
     cleaned = re.sub(r'^(REJECTED|NEEDS A PERSON TO CHECK|APPROVE)\s+under\s+[A-Za-z0-9_]+:\s*', '', reason, flags=re.IGNORECASE)
     cleaned = re.sub(r'^APPROVED:\s*', '', cleaned, flags=re.IGNORECASE)
     return cleaned.strip()
@@ -57,10 +56,10 @@ def render_header(title: str, subtitle: str, badge_text: Optional[str] = None):
     badge_html = f'<span class="sidebar-brand-badge" style="background: rgba(56, 189, 248, 0.12); padding: 4px 10px; border-radius: 9999px; border: 1px solid rgba(56, 189, 248, 0.25);">{badge_text}</span>' if badge_text else ''
     html_str = f"""<div style="margin-bottom: 1.5rem;">
 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 4px;">
-<h1 style="margin: 0; color: #ffffff;">{title}</h1>
+<h1 style="margin: 0;">{title}</h1>
 {badge_html}
 </div>
-<p style="margin: 0; color: #94a3b8; font-size: 0.95rem; font-weight: 400;">{subtitle}</p>
+<p style="margin: 0; color: var(--text-muted); font-size: 0.95rem; font-weight: 400;">{subtitle}</p>
 </div>"""
     st.markdown(html_str, unsafe_allow_html=True)
 
@@ -77,7 +76,7 @@ def render_kpi_card(title: str, value: str, subtitle: str, status: str = "defaul
 
 def render_decision_hero(decision: str, reason: str, pack_id: Optional[str] = None):
     """Render a large enterprise SaaS hero banner for the audit decision in plain English."""
-    pack_label = f'<span style="font-size: 0.85rem; color: #94a3b8; font-weight: 500;">Document: {pack_id}</span>' if pack_id else ''
+    pack_label = f'<span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Document: {pack_id}</span>' if pack_id else ''
     human_reason = clean_reason(reason)
     
     if decision == "APPROVE":
@@ -130,6 +129,7 @@ def render_supplier_table(data_rows: List[Dict[str, Any]], is_batch: bool = Fals
     - Details
     
     CRITICAL: Generates unindented HTML so markdown parser never treats rows as code blocks.
+    Uses semantic classes so colors automatically adapt to Dark/Light themes.
     """
     if not data_rows:
         st.info("No supplier packs match the selected criteria.")
@@ -147,11 +147,11 @@ def render_supplier_table(data_rows: List[Dict[str, Any]], is_batch: bool = Fals
 
         v_pct = float(row.get("price_variance_pct", 0.0))
         if v_pct <= 0:
-            v_color = "#34d399"
+            v_color = "#10b981"
         elif v_pct > 3.0:
-            v_color = "#f87171"
+            v_color = "#ef4444"
         else:
-            v_color = "#fbbf24"
+            v_color = "#f59e0b"
         variance_str = f'<span style="color: {v_color}; font-weight: 600;">{v_pct:+.2f}%</span>'
 
         quoted_str = fmt_money(row.get("quoted_price", 0.0))
@@ -162,18 +162,18 @@ def render_supplier_table(data_rows: List[Dict[str, Any]], is_batch: bool = Fals
         adv = row.get("advance_pct", 0.0)
         days = row.get("delivery_days", None)
         deliv_str = f"{days}d" if days else "N/A"
-        details_str = f'<span style="font-size: 0.76rem; color: #94a3b8;">Adv: {adv:.0f}% | Deliv: {deliv_str}</span>'
+        details_str = f'<span class="sg-col-details">Adv: {adv:.0f}% | Deliv: {deliv_str}</span>'
 
         # Build table row string with ZERO leading spaces on any line
         row_html = (
             '<tr>'
-            f'<td style="font-weight: 600; color: #38bdf8;">{html.escape(str(row.get("pack_id", "")))}</td>'
-            f'<td style="font-weight: 500; color: #f1f5f9;">{html.escape(str(row.get("supplier_name", "")))}</td>'
-            f'<td style="color: #cbd5e1;">{html.escape(item_label)}</td>'
-            f'<td style="font-family: monospace; color: #ffffff;">{quoted_str}</td>'
+            f'<td class="sg-col-pack">{html.escape(str(row.get("pack_id", "")))}</td>'
+            f'<td class="sg-col-supplier">{html.escape(str(row.get("supplier_name", "")))}</td>'
+            f'<td class="sg-col-product">{html.escape(item_label)}</td>'
+            f'<td class="sg-col-price">{quoted_str}</td>'
             f'<td>{variance_str}</td>'
             f'<td>{badge}</td>'
-            f'<td style="color: #94a3b8; font-size: 0.78rem; max-width: 280px;">{html.escape(reason_text[:65])}{"..." if len(reason_text) > 65 else ""}</td>'
+            f'<td class="sg-col-reason">{html.escape(reason_text[:65])}{"..." if len(reason_text) > 65 else ""}</td>'
             f'<td>{details_str}</td>'
             '</tr>'
         )
@@ -269,7 +269,6 @@ def render_compliance_checklist(findings: List[RuleFinding]):
         desc = cat["default_desc"]
 
         if matched:
-            # Rejection takes priority over review
             rejections = [f for f in matched if f.category == "REJECT"]
             reviews = [f for f in matched if f.category == "NEEDS_A_PERSON_TO_CHECK"]
             
@@ -353,7 +352,7 @@ def render_evidence_table(quotation: ExtractedQuotation, filename: str):
             '<div class="evidence-field-name">'
             f'<span>{html.escape(f_name)}</span>'
             '<div>'
-            f'<span style="color: #64748b; font-size: 0.72rem; margin-right: 8px;">Source: {html.escape(filename)} (Page {eq.page_number})</span>'
+            f'<span style="color: var(--text-muted); font-size: 0.72rem; margin-right: 8px;">Source: {html.escape(filename)} (Page {eq.page_number})</span>'
             f'{badge}'
             '</div>'
             '</div>'
@@ -374,7 +373,7 @@ def render_findings_list(findings: List[RuleFinding], category: str):
     """Render findings grouped into clean cards with human-friendly plain English."""
     if not findings:
         st.markdown(
-            '<div style="color: #64748b; font-size: 0.85rem; font-style: italic; padding: 0.5rem 0;">No findings in this category.</div>',
+            '<div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding: 0.5rem 0;">No findings in this category.</div>',
             unsafe_allow_html=True
         )
         return
@@ -388,19 +387,19 @@ def render_findings_list(findings: List[RuleFinding], category: str):
 
     cards_html = []
     for f in findings:
-        obs_html = f'<div style="font-size: 0.78rem; color: #94a3b8;"><strong style="color: #cbd5e1;">Observed:</strong> <code>{html.escape(f.observed_value)}</code></div>' if f.observed_value else ''
-        exp_html = f'<div style="font-size: 0.78rem; color: #94a3b8;"><strong style="color: #cbd5e1;">Requirement:</strong> <code>{html.escape(f.expected_value)}</code></div>' if f.expected_value else ''
+        obs_html = f'<div style="font-size: 0.78rem; color: var(--text-muted);"><strong style="color: var(--text-secondary);">Observed:</strong> <code>{html.escape(f.observed_value)}</code></div>' if f.observed_value else ''
+        exp_html = f'<div style="font-size: 0.78rem; color: var(--text-muted);"><strong style="color: var(--text-secondary);">Requirement:</strong> <code>{html.escape(f.expected_value)}</code></div>' if f.expected_value else ''
 
         card_html = (
-            '<div style="background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 0.65rem;">'
+            '<div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 0.65rem;">'
             '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">'
-            f'<div style="font-weight: 600; font-size: 0.88rem; color: #ffffff;"><span class="badge {b_class}" style="margin-right: 6px;">{b_label}</span>{html.escape(f.rule_name)}</div>'
+            f'<div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);"><span class="badge {b_class}" style="margin-right: 6px;">{b_label}</span>{html.escape(f.rule_name)}</div>'
             '</div>'
-            f'<div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.4; margin-bottom: 0.45rem;">{html.escape(f.description)}</div>'
+            f'<div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 0.45rem;">{html.escape(f.description)}</div>'
             '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0.45rem;">'
             f'{obs_html}{exp_html}'
             '</div>'
-            '<div style="font-size: 0.73rem; color: #38bdf8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Supporting Text from PDF:</div>'
+            '<div style="font-size: 0.73rem; color: var(--accent-cyan); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Supporting Text from PDF:</div>'
             f'<div class="evidence-quote">"{html.escape(f.evidence_text)}"</div>'
             '</div>'
         )

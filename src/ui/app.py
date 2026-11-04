@@ -1,6 +1,7 @@
 """SupplyGuard AI: Enterprise Document Verification & Procurement Compliance System.
 
 Designed with a modern SaaS aesthetic inspired by Linear, Stripe, and Vercel.
+Supports dynamic Dark Mode and Light Mode with seamless session state persistence.
 """
 import sys
 from pathlib import Path
@@ -17,7 +18,7 @@ import streamlit as st
 
 from src.config import DATA_DIR, is_gemini_available, GEMINI_MODEL, COMPANY_RULES_PATH
 from src.workflow.graph import run_verification
-from src.ui.styles import ENTERPRISE_CSS
+from src.ui.styles import get_enterprise_css
 from src.ui.components import (
     render_header,
     render_kpi_card,
@@ -41,8 +42,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inject custom Linear/Stripe-inspired CSS
-st.markdown(ENTERPRISE_CSS, unsafe_allow_html=True)
+# Initialize persistent theme selection in session state
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "dark"
+
+# Inject dynamic theme CSS based on user selection
+st.markdown(get_enterprise_css(st.session_state["theme"]), unsafe_allow_html=True)
 
 
 # -------------------------------------------------------------
@@ -93,7 +98,7 @@ df_all = pd.DataFrame(all_packs_data)
 
 
 # -------------------------------------------------------------
-# 3. SIDEBAR NAVIGATION
+# 3. SIDEBAR NAVIGATION & THEME TOGGLE
 # -------------------------------------------------------------
 with st.sidebar:
     st.markdown(
@@ -106,6 +111,33 @@ with st.sidebar:
 </div>""",
         unsafe_allow_html=True
     )
+
+    # Theme Switcher Box & Toggle Button
+    current_theme = st.session_state["theme"]
+    is_dark = current_theme == "dark"
+
+    t_icon = "🌙" if is_dark else "☀️"
+    t_mode_label = "Dark Navy Mode" if is_dark else "Clean Light Mode"
+    t_badge_class = "badge-neutral" if is_dark else "badge-pass"
+
+    st.markdown(
+        f"""<div class="theme-toggle-box">
+<div class="theme-toggle-status">
+<span>{t_icon}</span>
+<span style="color: var(--text-primary); font-size: 0.8rem; font-weight: 600;">{t_mode_label}</span>
+</div>
+<span class="badge {t_badge_class}">Active</span>
+</div>""",
+        unsafe_allow_html=True
+    )
+
+    btn_icon = "☀️" if is_dark else "🌙"
+    btn_text = "Switch to Light Mode" if is_dark else "Switch to Dark Mode"
+    if st.button(f"{btn_icon} {btn_text}", key="theme_toggle_btn", use_container_width=True, help="Toggle between Dark and Light mode"):
+        st.session_state["theme"] = "light" if is_dark else "dark"
+        st.rerun()
+
+    st.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
 
     # Initialize nav selection in session state if not set
     if "nav_view" not in st.session_state:
@@ -137,14 +169,15 @@ with st.sidebar:
     st.markdown(
         f"""<div class="sidebar-status-card">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-<span style="font-weight: 600; color: #e2e8f0;">System Status</span>
-<span style="display: flex; align-items: center; color: #34d399; font-weight: 600;">
+<span style="font-weight: 600; color: var(--text-primary);">System Status</span>
+<span style="display: flex; align-items: center; color: #10b981; font-weight: 600;">
 <span class="status-indicator"></span> Online
 </span>
 </div>
-<div style="color: #94a3b8; line-height: 1.4;">
+<div style="color: var(--text-muted); line-height: 1.4;">
 <strong>AI Engine:</strong> {GEMINI_MODEL}<br>
 <strong>Status:</strong> {status_text}<br>
+<strong>Theme:</strong> {'🌙 Dark Navy' if is_dark else '☀️ Clean Light'}<br>
 <strong>Version:</strong> v1.2.0-enterprise
 </div>
 </div>""",
@@ -152,8 +185,8 @@ with st.sidebar:
     )
 
     st.markdown(
-        """<div style="margin-top: 1rem; padding: 0.75rem; background: rgba(30, 41, 59, 0.4); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); font-size: 0.72rem; color: #94a3b8;">
-<strong style="color: #38bdf8;">🔒 Data Privacy Verified</strong><br>
+        """<div style="margin-top: 1rem; padding: 0.75rem; background: var(--sidebar-card-bg); border-radius: 8px; border: 1px solid var(--sidebar-card-border); font-size: 0.72rem; color: var(--text-muted);">
+<strong style="color: var(--accent-cyan);">🔒 Data Privacy Verified</strong><br>
 • Paid Tier keys guarantee prompt data confidentiality.<br>
 • Local PyMuPDF parsing preserves layout with character stream verification.
 </div>""",
@@ -193,24 +226,24 @@ if selected_nav == "📊 Dashboard":
 <div class="sg-card-title">📈 Decision Distribution & Triage Breakdown</div>
 <div style="margin: 1.25rem 0;">
 <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;">
-<span style="color: #34d399; font-weight: 600;">Approved ({approved_count})</span>
-<span style="color: #fbbf24; font-weight: 600;">Needs Review ({review_count})</span>
-<span style="color: #f87171; font-weight: 600;">Rejected ({rejected_count})</span>
+<span style="color: #10b981; font-weight: 600;">Approved ({approved_count})</span>
+<span style="color: #f59e0b; font-weight: 600;">Needs Review ({review_count})</span>
+<span style="color: #ef4444; font-weight: 600;">Rejected ({rejected_count})</span>
 </div>
-<div style="height: 12px; display: flex; border-radius: 6px; overflow: hidden; background: #1e293b;">
+<div style="height: 12px; display: flex; border-radius: 6px; overflow: hidden; background: var(--bar-track-bg);">
 <div style="width: {approved_count/total_packs*100}%; background: #10b981;"></div>
 <div style="width: {review_count/total_packs*100}%; background: #f59e0b;"></div>
 <div style="width: {rejected_count/total_packs*100}%; background: #ef4444;"></div>
 </div>
-<div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; margin-top: 6px;">
+<div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">
 <span>{approved_count/total_packs*100:.1f}% compliant</span>
 <span>{review_count/total_packs*100:.1f}% review</span>
 <span>{rejected_count/total_packs*100:.1f}% rejected</span>
 </div>
 </div>
-<div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 0.85rem 1rem; margin-top: 1rem;">
-<div style="font-size: 0.8rem; font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">Zero-Hallucination Safe Default</div>
-<p style="font-size: 0.75rem; color: #94a3b8; margin: 0; line-height: 1.4;">
+<div class="sg-callout-box">
+<div style="font-size: 0.8rem; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Zero-Hallucination Safe Default</div>
+<p style="font-size: 0.75rem; color: var(--text-muted); margin: 0; line-height: 1.4;">
 Strict decision priority guarantees that missing clauses, unverified citations, or boundary breaches never result in automatic approval.
 </p>
 </div>
@@ -221,24 +254,24 @@ Strict decision priority guarantees that missing clauses, unverified citations, 
         risk_html = """<div class="sg-card">
 <div class="sg-card-title">⚠️ Procurement Risk Factors & Triggers</div>
 <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 0.5rem;">
-<div style="display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(239, 68, 68, 0.08); border-radius: 6px; border-left: 3px solid #ef4444; font-size: 0.82rem;">
-<span style="color: #e2e8f0;">Advance Payment Ceiling (> 20%)</span>
+<div class="risk-item-fail">
+<span>Advance Payment Ceiling (> 20%)</span>
 <span class="badge badge-fail">1 Pack (Pack 05)</span>
 </div>
-<div style="display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(239, 68, 68, 0.08); border-radius: 6px; border-left: 3px solid #ef4444; font-size: 0.82rem;">
-<span style="color: #e2e8f0;">Price Ceiling Breach (> +3%)</span>
+<div class="risk-item-fail">
+<span>Price Ceiling Breach (> +3%)</span>
 <span class="badge badge-fail">1 Pack (Pack 03)</span>
 </div>
-<div style="display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(239, 68, 68, 0.08); border-radius: 6px; border-left: 3px solid #ef4444; font-size: 0.82rem;">
-<span style="color: #e2e8f0;">Late-Delivery Penalty Clause Missing</span>
+<div class="risk-item-fail">
+<span>Late-Delivery Penalty Clause Missing</span>
 <span class="badge badge-fail">1 Pack (Pack 06)</span>
 </div>
-<div style="display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(239, 68, 68, 0.08); border-radius: 6px; border-left: 3px solid #ef4444; font-size: 0.82rem;">
-<span style="color: #e2e8f0;">Tax Registration Missing (TIN/BIN)</span>
+<div class="risk-item-fail">
+<span>Tax Registration Missing (TIN/BIN)</span>
 <span class="badge badge-fail">1 Pack (Pack 08)</span>
 </div>
-<div style="display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(245, 158, 11, 0.08); border-radius: 6px; border-left: 3px solid #f59e0b; font-size: 0.82rem;">
-<span style="color: #e2e8f0;">Arithmetic Discrepancies & Payment Window</span>
+<div class="risk-item-review">
+<span>Arithmetic Discrepancies & Payment Window</span>
 <span class="badge badge-review">2 Packs (Packs 04, 09)</span>
 </div>
 </div>
@@ -246,7 +279,7 @@ Strict decision priority guarantees that missing clauses, unverified citations, 
         st.markdown(risk_html, unsafe_allow_html=True)
 
     # Recent Audits Table Section
-    st.markdown('<h3 style="margin: 1.5rem 0 0.75rem 0; color: #ffffff;">📑 Supplier Quotation Pack Status Overview</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="margin: 1.5rem 0 0.75rem 0;">📑 Supplier Quotation Pack Status Overview</h3>', unsafe_allow_html=True)
     st.caption("Comprehensive evaluation table of all supplier quotation submissions against Aamar Garments Ltd procurement policies.")
     
     # Render clean table (free of raw HTML / code blocks)
@@ -378,7 +411,7 @@ elif selected_nav == "🔍 Individual Pack Audit":
 </div>
 <div class="procure-field">
 <div class="procure-label">Quoted Unit Price</div>
-<div class="procure-value" style="color: #38bdf8;">{unit_price_str}</div>
+<div class="procure-value" style="color: var(--accent-cyan);">{unit_price_str}</div>
 <div class="procure-subtext">Currency: BDT</div>
 </div>
 </div>
@@ -388,10 +421,10 @@ elif selected_nav == "🔍 Individual Pack Audit":
         with col_sec_b:
             req_qty_str = fmt_qty(pr.quantity_requested, pr.unit) if pr else "N/A"
             max_price_str = fmt_money(pr.maximum_unit_price) if pr else "N/A"
-            v_color = "#34d399" if v_diff <= 0 else ("#f87171" if v_diff > 3.0 else "#fbbf24")
+            v_color = "#10b981" if v_diff <= 0 else ("#ef4444" if v_diff > 3.0 else "#f59e0b")
             v_note = "Within allowable limit" if v_diff <= 0 else ("Exceeds +3% tolerance (REJECT)" if v_diff > 3.0 else "Within +3% tolerance (HUMAN REVIEW)")
             
-            q_color = "#34d399" if abs(q_diff) <= 5.0 else "#fbbf24"
+            q_color = "#10b981" if abs(q_diff) <= 5.0 else "#f59e0b"
             q_note = "Within +/-5% tolerance" if abs(q_diff) <= 5.0 else "Differs by >5% (HUMAN REVIEW)"
 
             card_b_html = f"""<div class="procure-section-card">
@@ -399,12 +432,12 @@ elif selected_nav == "🔍 Individual Pack Audit":
 <div class="procure-grid">
 <div class="procure-field">
 <div class="procure-label">Quantity: Requested vs Quoted</div>
-<div class="procure-value">{req_qty_str} <span style="font-size: 0.8rem; color: #94a3b8;">req</span> vs {quoted_qty_str}</div>
+<div class="procure-value">{req_qty_str} <span style="font-size: 0.8rem; color: var(--text-muted);">req</span> vs {quoted_qty_str}</div>
 <div class="procure-subtext" style="color: {q_color}; font-weight: 500;">{q_diff:+.1f}% — {q_note}</div>
 </div>
 <div class="procure-field">
 <div class="procure-label">Price: Maximum Allowed vs Quoted</div>
-<div class="procure-value">{max_price_str} <span style="font-size: 0.8rem; color: #94a3b8;">max</span> vs {unit_price_str}</div>
+<div class="procure-value">{max_price_str} <span style="font-size: 0.8rem; color: var(--text-muted);">max</span> vs {unit_price_str}</div>
 <div class="procure-subtext" style="color: {v_color}; font-weight: 600;">{v_diff:+.2f}% — {v_note}</div>
 </div>
 <div class="procure-field">
@@ -414,7 +447,7 @@ elif selected_nav == "🔍 Individual Pack Audit":
 </div>
 <div class="procure-field">
 <div class="procure-label">Total Payable Amount</div>
-<div class="procure-value" style="color: #38bdf8;">{fmt_money(q.total_amount if q else None)}</div>
+<div class="procure-value" style="color: var(--accent-cyan);">{fmt_money(q.total_amount if q else None)}</div>
 <div class="procure-subtext">Includes 15% VAT: {fmt_money(q.vat_amount if q else None)}</div>
 </div>
 </div>
@@ -483,14 +516,14 @@ elif selected_nav == "🔍 Individual Pack Audit":
         # ---------------------------------------------------------
         # SECTION D: COMPLIANCE CHECK
         # ---------------------------------------------------------
-        st.markdown('<h3 style="margin: 1.5rem 0 0.5rem 0; color: #ffffff;">📋 D. Corporate Compliance Checklist</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="margin: 1.5rem 0 0.5rem 0;">📋 D. Corporate Compliance Checklist</h3>', unsafe_allow_html=True)
         st.caption("Standardized evaluation of the 7 mandatory corporate purchasing rules for Aamar Garments Ltd.")
         render_compliance_checklist(res.findings)
 
         # ---------------------------------------------------------
         # SECTION E: DOCUMENT EVIDENCE
         # ---------------------------------------------------------
-        st.markdown('<h3 style="margin: 1.5rem 0 0.5rem 0; color: #ffffff;">🔍 E. Verifiable Document Evidence</h3>', unsafe_allow_html=True)
+        st.markdown('<h3 style="margin: 1.5rem 0 0.5rem 0;">🔍 E. Verifiable Document Evidence</h3>', unsafe_allow_html=True)
         st.caption(f"Exact verbatim text extracted from {target_pack_name} with verified page numbers. Missing clauses are flagged rather than hallucinated.")
         
         with st.expander("📄 View Verifiable Supporting Quotations & Evidence Citations", expanded=True):
@@ -498,7 +531,7 @@ elif selected_nav == "🔍 Individual Pack Audit":
 
         # Detected Issues Breakdown (if any)
         if res.rejection_findings or res.review_findings:
-            st.markdown('<h4 style="margin: 1.25rem 0 0.5rem 0; color: #f87171;">⚠️ Policy Findings & Discrepancies</h4>', unsafe_allow_html=True)
+            st.markdown('<h4 style="margin: 1.25rem 0 0.5rem 0; color: #ef4444;">⚠️ Policy Findings & Discrepancies</h4>', unsafe_allow_html=True)
             if res.rejection_findings:
                 st.markdown(f"**🔴 Mandatory Rejection Disqualifications ({len(res.rejection_findings)}):**")
                 render_findings_list(res.rejection_findings, "REJECT")
@@ -512,8 +545,8 @@ elif selected_nav == "🔍 Individual Pack Audit":
         if res.overall_decision == "NEEDS_A_PERSON_TO_CHECK":
             st.markdown("<hr>", unsafe_allow_html=True)
             signoff_html = """<div class="sg-card" style="border-left: 3px solid #f59e0b;">
-<div class="sg-card-title" style="color: #fbbf24;">✍️ Procurement Officer Review & Sign-Off</div>
-<p style="font-size: 0.85rem; color: #cbd5e1; margin-bottom: 0.75rem;">
+<div class="sg-card-title" style="color: #f59e0b;">✍️ Procurement Officer Review & Sign-Off</div>
+<p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
 This quotation has triggered policy conditions requiring manual review. Please log your assessment justification and select a final procurement decision.
 </p>
 </div>"""
@@ -632,7 +665,7 @@ elif selected_nav == "📈 Evaluation Report":
     with c_left:
         rep_left_html = """<div class="sg-card">
 <div class="sg-card-title">🔴 Most Common Rejection Causes</div>
-<div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.8;">
+<div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
 <strong>1. R1 Price Excess (> +3%):</strong> Pack 03 (+9.05% above maximum allowable price)<br>
 <strong>2. R2 Advance Payment (> 20%):</strong> Pack 05 (Demands 40% advance payment)<br>
 <strong>3. R3 Missing Penalty Clause:</strong> Pack 06 (No late-delivery delay clause in PDF)<br>
@@ -645,7 +678,7 @@ elif selected_nav == "📈 Evaluation Report":
     with c_right:
         rep_right_html = """<div class="sg-card">
 <div class="sg-card-title">🟡 Most Common Review Triggers</div>
-<div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.8;">
+<div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
 <strong>1. H1 Marginal Price Excess (<= +3%):</strong> Pack 04 (+2.31% tolerance review)<br>
 <strong>2. H2 Quantity Deviation (> 5%):</strong> Pack 07 (-17.50% shortfall below requested)<br>
 <strong>3. H3 Payment Window & H6 Math Error:</strong> Pack 09 (30-90 days window & math error)<br>
@@ -675,9 +708,9 @@ elif selected_nav == "📜 Company Rules":
         badge_text="Policy Engine"
     )
 
-    p_hierarchy_html = """<div class="sg-card" style="border-left: 3px solid #38bdf8;">
-<div style="font-size: 0.85rem; color: #94a3b8;">
-<strong style="color: #38bdf8;">DECISION PRIORITY HIERARCHY:</strong><br>
+    p_hierarchy_html = """<div class="sg-card" style="border-left: 3px solid var(--accent-cyan);">
+<div style="font-size: 0.85rem; color: var(--text-muted);">
+<strong style="color: var(--accent-cyan);">DECISION PRIORITY HIERARCHY:</strong><br>
 <code>REJECT (Priority 1)</code> &gt; <code>NEEDS A PERSON TO CHECK (Priority 2)</code> &gt; <code>APPROVE (Priority 3)</code><br>
 Any single rejection condition triggers immediate rejection. Uncertain extraction or unverifiable evidence never produces an automatic approval.
 </div>
@@ -688,26 +721,26 @@ Any single rejection condition triggers immediate rejection. Uncertain extractio
 
     with r_col1:
         rules_reject_html = """<div class="sg-card">
-<div class="sg-card-title" style="color: #f87171;">🔴 Rejection Rules (Mandatory PO Disqualification)</div>
+<div class="sg-card-title" style="color: #ef4444;">🔴 Rejection Rules (Mandatory PO Disqualification)</div>
 <div style="display: flex; flex-direction: column; gap: 8px;">
-<div style="background: rgba(239, 68, 68, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #ef4444; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Rule 1: Unit Price > 3% Above Maximum</strong><br>
+<div class="rule-card-reject">
+<strong>Rule 1: Unit Price > 3% Above Maximum</strong><br>
 Reject if quoted unit price exceeds the purchase request maximum ceiling by more than 3.0%.
 </div>
-<div style="background: rgba(239, 68, 68, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #ef4444; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Rule 2: Advance Payment > 20%</strong><br>
+<div class="rule-card-reject">
+<strong>Rule 2: Advance Payment > 20%</strong><br>
 Reject if supplier demands an advance payment exceeding 20.0% of total order value.
 </div>
-<div style="background: rgba(239, 68, 68, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #ef4444; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Rule 3: Late-Delivery Penalty Clause Missing</strong><br>
+<div class="rule-card-reject">
+<strong>Rule 3: Late-Delivery Penalty Clause Missing</strong><br>
 Reject if the quotation terms omit a late-delivery penalty clause, or if the rate is below 0.5% per week of delay.
 </div>
-<div style="background: rgba(239, 68, 68, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #ef4444; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Rule 4: Missing TIN or BIN</strong><br>
+<div class="rule-card-reject">
+<strong>Rule 4: Missing TIN or BIN</strong><br>
 Reject if the supplier's Taxpayer Identification Number (TIN) or Business Identification Number (BIN) is missing.
 </div>
-<div style="background: rgba(239, 68, 68, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #ef4444; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Rule 5: Delivery Schedule > 45 Days</strong><br>
+<div class="rule-card-reject">
+<strong>Rule 5: Delivery Schedule > 45 Days</strong><br>
 Reject if delivery is promised later than 45 calendar days after the purchase order.
 </div>
 </div>
@@ -716,34 +749,34 @@ Reject if delivery is promised later than 45 calendar days after the purchase or
 
     with r_col2:
         rules_review_html = """<div class="sg-card">
-<div class="sg-card-title" style="color: #fbbf24;">🟡 Human Review Rules (Procurement Sign-Off Required)</div>
+<div class="sg-card-title" style="color: #f59e0b;">🟡 Human Review Rules (Procurement Sign-Off Required)</div>
 <div style="display: flex; flex-direction: column; gap: 8px;">
-<div style="background: rgba(245, 158, 11, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Review 1: Marginal Price Excess (&le; 3%)</strong><br>
+<div class="rule-card-review">
+<strong>Review 1: Marginal Price Excess (&le; 3%)</strong><br>
 Send for review if unit price is above maximum by no more than 3.0%.
 </div>
-<div style="background: rgba(245, 158, 11, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Review 2: Quantity Variance &gt; 5%</strong><br>
+<div class="rule-card-review">
+<strong>Review 2: Quantity Variance &gt; 5%</strong><br>
 Send for review if quoted quantity differs from requested quantity by more than 5.0%.
 </div>
-<div style="background: rgba(245, 158, 11, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Review 3: Payment Terms Outside 30–60 Days</strong><br>
+<div class="rule-card-review">
+<strong>Review 3: Payment Terms Outside 30–60 Days</strong><br>
 Send for review if payment schedule is outside 30 to 60 days after delivery or unclear.
 </div>
-<div style="background: rgba(245, 158, 11, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Review 4: Delivery in 31 to 45 Days</strong><br>
+<div class="rule-card-review">
+<strong>Review 4: Delivery in 31 to 45 Days</strong><br>
 Send for review if delivery is promised between 31 and 45 calendar days after PO.
 </div>
-<div style="background: rgba(245, 158, 11, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Review 5: VAT Not Itemized at 15%</strong><br>
+<div class="rule-card-review">
+<strong>Review 5: VAT Not Itemized at 15%</strong><br>
 Send for review if VAT is not shown separately as an explicit 15% line item.
 </div>
-<div style="background: rgba(245, 158, 11, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Review 6: Numbers Do Not Add Up (Math Error)</strong><br>
+<div class="rule-card-review">
+<strong>Review 6: Numbers Do Not Add Up (Math Error)</strong><br>
 Send for review if line totals, subtotals, VAT, or grand totals contain calculation errors.
 </div>
-<div style="background: rgba(245, 158, 11, 0.08); border-radius: 6px; padding: 0.75rem; border-left: 3px solid #f59e0b; font-size: 0.82rem; color: #cbd5e1;">
-<strong style="color: #ffffff;">Review 7: Quotation Validity &lt; 30 Days</strong><br>
+<div class="rule-card-review">
+<strong>Review 7: Quotation Validity &lt; 30 Days</strong><br>
 Send for review if quotation is valid for less than 30 calendar days.
 </div>
 </div>
@@ -763,47 +796,47 @@ elif selected_nav == "ℹ️ About System":
 
     about_html = """<div class="sg-card">
 <div class="sg-card-title">🏛️ The 8-Node LangGraph Architecture</div>
-<div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.8;">
+<div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
 SupplyGuard AI isolates AI-assisted information extraction from business decision logic via a deterministic 8-node state machine:
 </div>
 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 1rem 0;">
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">1. Document Loading</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">PDF path & existence check</span>
+<div class="workflow-step-card">
+<strong>1. Document Loading</strong><br><span>PDF path & existence check</span>
 </div>
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">2. Text Extraction</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">PyMuPDF page-preserving</span>
+<div class="workflow-step-card">
+<strong>2. Text Extraction</strong><br><span>PyMuPDF page-preserving</span>
 </div>
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">3. Structured IE</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">Gemini 2.5 Flash / Fallback</span>
+<div class="workflow-step-card">
+<strong>3. Structured IE</strong><br><span>Gemini 2.5 Flash / Fallback</span>
 </div>
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">4. Schema Validation</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">Pydantic & quote check</span>
+<div class="workflow-step-card">
+<strong>4. Schema Validation</strong><br><span>Pydantic & quote check</span>
 </div>
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">5. PR Comparison</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">Price & Qty tolerances</span>
+<div class="workflow-step-card">
+<strong>5. PR Comparison</strong><br><span>Price & Qty tolerances</span>
 </div>
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">6. Contract Rules</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">TIN, delivery, penalty, VAT</span>
+<div class="workflow-step-card">
+<strong>6. Contract Rules</strong><br><span>TIN, delivery, penalty, VAT</span>
 </div>
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">7. Final Decision</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">REJECT &gt; REVIEW &gt; APPROVE</span>
+<div class="workflow-step-card">
+<strong>7. Final Decision</strong><br><span>REJECT &gt; REVIEW &gt; APPROVE</span>
 </div>
-<div style="background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
-<strong style="color: #38bdf8;">8. Report Generation</strong><br><span style="font-size: 0.75rem; color: #94a3b8;">VerificationResult & summary</span>
+<div class="workflow-step-card">
+<strong>8. Report Generation</strong><br><span>VerificationResult & summary</span>
 </div>
 </div>
 </div>
 
 <div class="sg-card">
 <div class="sg-card-title">🛠️ Technology Stack</div>
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 0.85rem; color: #cbd5e1;">
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 0.85rem; color: var(--text-secondary);">
 <div>• <strong>Python 3.11+:</strong> Core runtime</div>
 <div>• <strong>PyMuPDF:</strong> PDF stream text extraction</div>
 <div>• <strong>Gemini 2.5 Flash:</strong> Structured extraction</div>
 <div>• <strong>LangGraph:</strong> Fixed workflow pipeline</div>
 <div>• <strong>Pydantic v2:</strong> Strict schemas with Decimal</div>
 <div>• <strong>Pandas:</strong> Purchase request baseline</div>
-<div>• <strong>Streamlit:</strong> Enterprise frontend</div>
+<div>• <strong>Streamlit:</strong> Enterprise frontend with Dark/Light themes</div>
 <div>• <strong>Pytest:</strong> 37 automated test cases</div>
 <div>• <strong>Docker/Cloud Ready:</strong> Standard container deployment</div>
 </div>
